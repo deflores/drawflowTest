@@ -1,0 +1,47 @@
+version: "3.7"
+
+services:
+  dgraph:
+    image: dgraph/standalone
+    volumes:
+      - ./back-end/dgraph:/dgraph
+    ports:
+      - 5080:5080
+      - 8080:8080
+      - 9080:9080
+      - 8000:8000
+
+  pythflask:
+    image: tiangolo/uwsgi-nginx:python3.8-alpine
+    volumes:
+      - ./back-end/:/usr/src
+    command: sh -c 'cd /usr/src/pyapp && pip install flask && pip install -U flask-cors && pip install --upgrade autopep8 && flask run --host=0.0.0.0'
+    depends_on:
+      - dgraph
+    environment:
+      - FLASK_ENV=development
+    ports:
+      - 5000:5000
+
+  node:
+    image: node:17-alpine3.12
+    command: sh -c 'cd /usr/src && yarn && yarn serve'
+    volumes:
+      - ./front-end:/usr/src
+    ports:
+      - 8081:8080
+    depends_on:
+      - pythflask
+      - dgraph
+
+  go:
+    image: golang:rc-bullseye
+    command: sh -c 'cd /usr/src/app && go run .'
+    volumes:
+      - ./back-end:/usr/src
+    ports:
+      - 80:80
+    expose:
+      - 8080
+    depends_on:
+      - node
